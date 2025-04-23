@@ -1,0 +1,179 @@
+# Tag Generation Overview
+
+This document provides a comprehensive explanation of how tags are generated in the project. Tags are used to map data fields to specific placeholders in the application. The process involves several components and functions, which are detailed below.
+
+---
+
+## 1. Key Components Involved in Tag Generation
+
+### 1.1 `tagUtils.ts`
+The `tagUtils.ts` file contains the core logic for generating tag mappings. It defines:
+- **`matterData`**: A sample data structure representing a matter.
+- **`PREDEFINED_TAG_MAPPINGS`**: A constant object that defines mappings for firm details and matter information.
+- **`COMMON_CONTACT_TAGS`**: A list of common contact-related tags.
+- **`toPascalCase`**: A utility function to convert strings to PascalCase.
+- **`generateTagMappings`**: The main function responsible for generating tag mappings.
+
+### 1.2 `MainApp.tsx`
+The `MainApp` component uses the `generateTagMappings` function to create tag mappings dynamically based on the selected matter, roles, and user-defined questions.
+
+### 1.3 `TagAccordion.tsx`
+The `TagAccordion` component displays the generated tags in an accordion UI. Users can double-click a tag to insert it into the document.
+
+---
+
+## 2. Detailed Explanation of Tag Generation
+
+### 2.1 Predefined Tag Mappings
+The `PREDEFINED_TAG_MAPPINGS` object in `tagUtils.ts` defines static mappings for:
+- **Firm Details**: Tags like `Firm.FirmName`, `Firm.Phone`, etc., are mapped to corresponding database columns.
+- **Matter Information**: Tags like `Matter.MatterNumber`, `Matter.OpenedDate`, etc., are mapped to specific fields in the `matterData` object.
+
+Each mapping includes:
+- `tagName`: The name of the tag.
+- `mappedTable`: The database table associated with the tag.
+- `mappedColumn`: The column in the table.
+- `mappedCondition`: The condition to filter the data.
+
+### 2.2 Dynamic Tag Generation
+The `generateTagMappings` function dynamically generates tags based on:
+1. **Matter Data**: Tags are created for fields in the `matterData` object using the predefined mappings.
+2. **Selected Roles**: For each role in `selectedRoles`, tags are generated for common contact fields (e.g., `Role.Name`, `Role.Email`).
+3. **Ask Questions**: User-defined questions are converted into tags (e.g., `Ask.QuestionFieldName`).
+
+#### Function Logic:
+1. Initialize an empty `tagMappings` object.
+2. Iterate over `PREDEFINED_TAG_MAPPINGS.firmDetails` and `PREDEFINED_TAG_MAPPINGS.matterInfo` to add static mappings.
+3. For each role in `selectedRoles`, generate tags for `COMMON_CONTACT_TAGS` using the role's label.
+4. For each question in `askQuestions`, generate a tag using the question's field name.
+5. Return the `tagMappings` object.
+
+### 2.3 Utility Function: `toPascalCase`
+This function converts strings to PascalCase format, ensuring consistency in tag naming. For example:
+- Input: `"firm name"`
+- Output: `"FirmName"`
+
+---
+
+## 3. Tag Display and Interaction
+
+### 3.1 TagAccordion Component
+The `TagAccordion` component groups tags by their prefix (e.g., `Firm`, `Matter`) and displays them in an accordion UI. Key features:
+- Tags are grouped dynamically based on their prefix.
+- Users can double-click a tag to insert it into the document.
+
+### 3.2 Tag Insertion
+When a tag is double-clicked, the `onInsertTag` function is triggered. This function:
+1. Checks if the Office API is ready.
+2. Uses the Word JavaScript API to insert the tag into the document body in the format `<<TagName>>`.
+
+---
+
+## 4. Example Workflow
+
+1. **Matter Selection**:
+   - The user selects a matter type and sub-matter type in the `MatterSelection` component.
+   - The selected matter data and roles are passed to the `MainApp` component.
+
+2. **Tag Generation**:
+   - The `generateTagMappings` function is called with `matterData`, `selectedRoles`, and `askQuestions`.
+   - A `tagMappings` object is created with all the relevant tags.
+
+3. **Tag Display**:
+   - The `TagAccordion` component displays the tags grouped by their prefix.
+
+4. **Tag Insertion**:
+   - The user double-clicks a tag in the `TagAccordion` component.
+   - The tag is inserted into the Word document using the Word JavaScript API.
+
+---
+
+## 5. Code References
+
+### 5.1 `generateTagMappings` Function
+```typescript
+export function generateTagMappings(matterData: any, selectedRoles: any[], askQuestions: any[]) {
+  const tagMappings: Record<string, string> = {};
+  const matterInfo = matterData?.matterInfo || {};
+  PREDEFINED_TAG_MAPPINGS.firmDetails.forEach((item) => {
+    tagMappings[`Firm.${toPascalCase(item.mappedColumn)}`] = `company.${item.mappedColumn}`;
+  });
+
+  PREDEFINED_TAG_MAPPINGS.matterInfo.forEach((item) => {
+    tagMappings[`Matter.${toPascalCase(item.tagName)}`] = item.mappedColumn;
+  });
+
+  selectedRoles.forEach((role) => {
+    const key = toPascalCase(role.roleLabel || "Role");
+    COMMON_CONTACT_TAGS.forEach((field) => {
+      const label = field.split(".")[0];
+      tagMappings[`${key}.${toPascalCase(label)}`] = `participants.${key}.${field}`;
+    });
+  });
+
+  askQuestions.forEach((q) => {
+    tagMappings[`Ask.${toPascalCase(q.fieldName)}`] = `askQuestions.${q.fieldName}`;
+  });
+
+  return tagMappings;
+}
+```
+
+### 5.2 TagAccordion Component
+```tsx
+const TagAccordion: React.FC<TagAccordionProps> = ({ tagMappings, onInsertTag }) => {
+  const groupedTags: Record<string, string[]> = {};
+  Object.keys(tagMappings).forEach((tag) => {
+    const group = tag.split(".")[0]; // Firm, Matter, etc.
+    if (!groupedTags[group]) groupedTags[group] = [];
+    groupedTags[group].push(tag);
+  });
+
+  return (
+    <div className="accordion" id="tagsAccordion">
+      {Object.entries(groupedTags).map(([group, tags], idx) => (
+        <div className="accordion-item" key={idx}>
+          <h2 className="accordion-header" id={`heading-${group}-${idx}`}>
+            <button
+              className="accordion-button collapsed"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target={`#collapse-${group}-${idx}`}
+              aria-expanded="false"
+              aria-controls={`collapse-${group}-${idx}`}
+            >
+              {group}
+            </button>
+          </h2>
+          <div
+            id={`collapse-${group}-${idx}`}
+            className="accordion-collapse collapse"
+            aria-labelledby={`heading-${group}-${idx}`}
+            data-bs-parent="#tagsAccordion"
+          >
+            <div className="accordion-body">
+              <ul className="list-group">
+                {tags.map((tag, i) => (
+                  <li
+                    key={i}
+                    className="list-group-item clickable-tag"
+                    onDoubleClick={() => onInsertTag(tag)}
+                  >
+                    {tag}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+---
+
+## 6. Conclusion
+
+The tag generation process in this project is a combination of predefined mappings, dynamic role-based tags, and user-defined questions. The `generateTagMappings` function serves as the core logic, while the `TagAccordion` component provides an intuitive UI for interacting with the tags. This modular approach ensures flexibility and scalability in handling various tagging requirements.

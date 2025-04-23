@@ -1,0 +1,134 @@
+# Tag Generation Overview (AI-Readable Format)
+
+This document explains the tag generation process in a structured format for AI assistants. The constants, API responses, and logic remain consistent with the original implementation.
+
+---
+
+## 1. Components and Functions
+
+### 1.1 Core Components
+- **`tagUtils.ts`**: Contains the logic for tag generation.
+- **`MainApp.tsx`**: Uses the tag generation logic and passes the tags to the UI.
+- **`TagAccordion.tsx`**: Displays tags in a grouped accordion UI.
+
+### 1.2 Key Functions
+- **`generateTagMappings`**: Dynamically generates tag mappings.
+- **`toPascalCase`**: Converts strings to PascalCase format.
+
+---
+
+## 2. Tag Generation Logic
+
+### 2.1 Predefined Mappings
+- **Source**: `PREDEFINED_TAG_MAPPINGS` in `tagUtils.ts`.
+- **Categories**:
+  1. **Firm Details**: Maps fields like `Firm.FirmName` to database columns.
+  2. **Matter Information**: Maps fields like `Matter.MatterNumber` to `matterData`.
+
+### 2.2 Dynamic Mappings
+- **Inputs**:
+  1. `matterData`: Contains matter-related information.
+  2. `selectedRoles`: Roles selected by the user.
+  3. `askQuestions`: User-defined questions.
+
+- **Logic**:
+  1. Iterate over predefined mappings to add static tags.
+  2. Generate tags for each role in `selectedRoles` using `COMMON_CONTACT_TAGS`.
+  3. Add tags for each question in `askQuestions`.
+
+- **Output**: A `tagMappings` object with keys as tag names and values as data paths.
+
+---
+
+## 3. Tag Display and Interaction
+
+### 3.1 Grouping Tags
+- Tags are grouped by their prefix (e.g., `Firm`, `Matter`) in the `TagAccordion` component.
+
+### 3.2 Inserting Tags
+- Tags are inserted into the document using the Word JavaScript API in the format `<<TagName>>`.
+
+---
+
+## 4. Example Workflow
+
+1. **Input**:
+   - Matter data (`matterData`).
+   - Selected roles (`selectedRoles`).
+   - User-defined questions (`askQuestions`).
+
+2. **Processing**:
+   - Call `generateTagMappings` with the inputs.
+   - Generate a `tagMappings` object.
+
+3. **Output**:
+   - Display tags in the `TagAccordion` component.
+   - Insert tags into the document on user interaction.
+
+---
+
+## 5. Code References
+
+### 5.1 `generateTagMappings` Function
+```typescript
+// filepath: d:\ammar\react-addin\src\taskpane\utils\tagUtils.ts
+export function generateTagMappings(matterData: any, selectedRoles: any[], askQuestions: any[]) {
+  // ...existing code...
+  PREDEFINED_TAG_MAPPINGS.firmDetails.forEach((item) => {
+    tagMappings[`Firm.${toPascalCase(item.mappedColumn)}`] = `company.${item.mappedColumn}`;
+  });
+  // ...existing code...
+  selectedRoles.forEach((role) => {
+    const key = toPascalCase(role.roleLabel || "Role");
+    COMMON_CONTACT_TAGS.forEach((field) => {
+      const label = field.split(".")[0];
+      tagMappings[`${key}.${toPascalCase(label)}`] = `participants.${key}.${field}`;
+    });
+  });
+  // ...existing code...
+  return tagMappings;
+}
+```
+
+### 5.2 TagAccordion Component
+```tsx
+// filepath: d:\ammar\react-addin\src\taskpane\components\TagAccordion.tsx
+const TagAccordion: React.FC<TagAccordionProps> = ({ tagMappings, onInsertTag }) => {
+  // ...existing code...
+  Object.keys(tagMappings).forEach((tag) => {
+    const group = tag.split(".")[0]; // Firm, Matter, etc.
+    if (!groupedTags[group]) groupedTags[group] = [];
+    groupedTags[group].push(tag);
+  });
+  // ...existing code...
+};
+```
+
+---
+
+## 6. Constants and API Responses
+
+### 6.1 Constants
+- **`PREDEFINED_TAG_MAPPINGS`**: Defines static mappings for firm details and matter information.
+- **`COMMON_CONTACT_TAGS`**: A list of common contact-related fields.
+
+### 6.2 Sample API Response (`matterData`)
+```json
+{
+  "matterId": 3,
+  "title": "Sample Matter",
+  "company": { "id": 1, "name": "Sample Company" },
+  "participants": [
+    {
+      "role": { "roleName": "Solicitor" },
+      "ContactDetails": { "name": "John Doe", "email": "john.doe@example.com" }
+    }
+  ]
+}
+```
+
+---
+
+## 7. Summary
+
+The tag generation process combines static mappings, dynamic role-based tags, and user-defined questions. The `generateTagMappings` function is the core logic, while the `TagAccordion` component provides an interactive UI for tag insertion. This modular design ensures flexibility and scalability.
